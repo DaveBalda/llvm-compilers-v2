@@ -296,7 +296,11 @@ bool runOnBasicBlockAdv(BasicBlock &B)
  *  - a = b+1, c = a-1 => a = b+1, c=b
  *
  * Dapprima avviene un controllo che verifica la validità dell'opcode, che dev'essere un'addizione o una sottrazione.
- *
+ * Anche qua è presente 'swp' per controllare che l'operando costante sia in prima o in seconda posizione.
+ * Si va poi a iterare su tutti gli usi di quella specifica istruzione e si fa lo stesso controllo, compreso lo swap.
+ * Se le posizioni sono le stesse e i due immediates sono uguali, allora l'ultimo controllo da fare riguarda proprio
+ * la discordanza di opcode. Infatti, se i due opcode saranno differenti, significa che uno è un'addizione e l'altro
+ * una sottrazione. In pratica, si annullano a vicenda!
  */
 bool runOnMultiInstruction(BasicBlock &B)
 {
@@ -307,6 +311,7 @@ bool runOnMultiInstruction(BasicBlock &B)
             bool swp = false;
             ConstantInt *imm1 = nullptr;
 
+            // Controllo swap della prima istruzione
             if (ConstantInt *secOp = dyn_cast<ConstantInt>(I.getOperand(1)))
                 imm1 = secOp;
             else if (ConstantInt *firOp = dyn_cast<ConstantInt>(I.getOperand(0)))
@@ -317,6 +322,7 @@ bool runOnMultiInstruction(BasicBlock &B)
 
             if (imm1 != nullptr)
             {
+                // Itero su tutti gli user della prima istruzione
                 for (auto iter_U = I.user_begin(); iter_U != I.user_end(); ++iter_U)
                 {
                     Instruction *U = dyn_cast<Instruction>(*iter_U);
@@ -324,6 +330,7 @@ bool runOnMultiInstruction(BasicBlock &B)
                     {
                         ConstantInt *imm2 = nullptr;
 
+                        // Determinato che la seconda istruzione è una add o una sub, ne controllo lo swap
                         if (ConstantInt *secOp = dyn_cast<ConstantInt>(U->getOperand(1)))
                             imm2 = secOp;
                         else if (ConstantInt *firOp = dyn_cast<ConstantInt>(U->getOperand(0)))
@@ -331,6 +338,7 @@ bool runOnMultiInstruction(BasicBlock &B)
 
                         if (imm2)
                         {
+                            // Se lo swap combacia con la prima e gli opcode discordano, abbiamo una multi-instr
                             if (imm1 == imm2 && I.getOpcode() != U->getOpcode())
                             {
                                 outs() << "[MultiInstruction]: " << I.getOpcodeName() << " ->" << I << "\n";
