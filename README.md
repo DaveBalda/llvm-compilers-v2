@@ -1,6 +1,7 @@
 # Repository LLVM per il CdL in Informatica (UniMoRe)
 
-Questa repo contiene il materiale per l'esame di Linguaggi e Compilatori (seconda parte), corso tenuto dal professor Andrea Marongiu.<br/>
+Questa repo contiene il materiale per l'esame di Linguaggi e Compilatori (seconda parte).
+Il corso è tenuto dal professor *Andrea Marongiu*.<br/>
 I vari Assignment sono distribuiti nelle cartelle, ciascuna di esse numerata in relazione al numero di Assignment.
 
 ### Assignment 1
