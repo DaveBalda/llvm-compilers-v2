@@ -23,4 +23,4 @@ Il file da analizzare è `LoopWalk.cpp`.
 
 ## Assignment 4
 L'Assignment prevede la creazione di funzioni per l'esecuzione della **Loop Fusion** su alcuni loop guarded e unguarded.<br/>
-Il file da analizzare è `LoopFusion.cpp` *(TO BE INSERTED)*
+Il file da analizzare è `LoopFusion.cpp`
