@@ -65,9 +65,14 @@ void adjLoops(std::set<std::pair<llvm::Loop *, llvm::Loop *>> &adjacentLoops, ll
                 auto *exitBlock = L1->getExitBlock();
                 auto *preheader2 = L2->getLoopPreheader();
 
+                /**
+                 * In questo caso, il controllo viene fatto semplicemente
+                 * sui due bocchi. Se exitBlock è uguale al preheader del
+                 * successivo, allora sono adiacenti.
+                 */
                 if (exitBlock && preheader2 && exitBlock == preheader2)
                 {
-                    // controllo istruzioni extra
+                    /*
                     bool extraInstr = false;
                     for (auto &I : *exitBlock)
                     {
@@ -83,7 +88,10 @@ void adjLoops(std::set<std::pair<llvm::Loop *, llvm::Loop *>> &adjacentLoops, ll
                         llvm::outs() << "[Unguarded Loops] Adiacenza trovata!\n";
                         adjFound = true;
                         pair(L1, L2, adjacentLoops);
-                    }
+                    }*/
+                    llvm::outs() << "[Unguarded Loops] Adiacenza trovata!\n";
+                    adjFound = true;
+                    pair(L1, L2, adjacentLoops);
                 }
             }
         }
@@ -174,15 +182,28 @@ bool negDependencies(std::pair<llvm::Loop *, llvm::Loop *> loop)
             // Se l'istruzione accede alla memoria (tipo a[i]) allora esegui...
             if (I.getOpcode() == llvm::Instruction::GetElementPtr)
             {
+                // Stiamo parlando di tutti gli usi di %a
                 for (auto &use : I.getOperand(0)->uses())
                 {
+                    // Controlla che gli user di %a siano istruzioni.
                     if (auto inst = llvm::dyn_cast<llvm::Instruction>(use.getUser()))
                     {
                         if (loop.second->contains(inst))
                         {
+                            // Indice di %a nel secondo loop.
+                            // Controllo che sia un'istruzione.
                             if (auto inst2 = llvm::dyn_cast<llvm::Instruction>(inst->getOperand(1)))
                             {
-                                // se l'istruzione non è una PHI, allora c'è un'altra istruzione che altera il valore dell'offset
+                                /**
+                                 * Se è una PHI instruction, significa che il valore non è alterato.
+                                 * Supponiamo a[i]:
+                                 *  - Caso 1: i è quello del preheader (es: i=0)
+                                 *  - Caso 2: i è quello del latch (es: i++)
+                                 * Quindi, siamo davanti a un'istruzione PHI.
+                                 * Se invece l'istruzione non è una PHI (es: i+1), allora qualcos'altro
+                                 * sta alterando l'offset. Questo perché nella forma single SSA vai
+                                 * a ridefinire l'operazione (es: %j = sub %i, 1).
+                                 */
                                 if (auto PHIinst = llvm::dyn_cast<llvm::Instruction>(inst2->getOperand(0)))
                                 {
                                     switch (PHIinst->getOpcode())
@@ -205,7 +226,7 @@ bool negDependencies(std::pair<llvm::Loop *, llvm::Loop *> loop)
     // visualizzazione, se presenti, delle istruzioni che violano la dipendenza negativa
     if (!depInst.empty())
     {
-        llvm::outs() << "\n\nLoop non fondibili a causa di violazioni sulla dipendenza negativa, a causa di:\n";
+        llvm::outs() << "\n\n[negDep] Trovate dipendenze negative! Loop non fondibili:\n";
         for (auto inst : depInst)
         {
             llvm::outs() << "Istruzione: " << *inst << "\n";
@@ -218,14 +239,14 @@ bool negDependencies(std::pair<llvm::Loop *, llvm::Loop *> loop)
 // Fusione dei loop
 void loopFusion(llvm::Loop *&L1, llvm::Loop *&L2)
 {
-
-    // sostituzione delle induction variables di L2 con quelle di L1
+    /**
+     * Sostituzione delle induction variables di L2 con quelle di L1.
+     * Le IV sono i contatori (es: i, j...)
+     */
     auto firstLoopIV = L1->getCanonicalInductionVariable();
     auto secondLoopIV = L2->getCanonicalInductionVariable();
 
     secondLoopIV->replaceAllUsesWith(firstLoopIV);
-
-    // modifiche al control flow graph
 
     auto header1 = L1->getHeader();
     auto header2 = L2->getHeader();
@@ -235,19 +256,21 @@ void loopFusion(llvm::Loop *&L1, llvm::Loop *&L2)
 
     if (!L1->isGuarded())
     {
+        /**
+         * Modifiche al Control Flow Graph (unguarded):
+         * 1. Header L1 --> Exit L2
+         * 2. Body L1 --> Body L2
+         * 3. Body L2 --> Latch L1
+         * 4. Header L2 --> Latch L2
+         */
 
-        // modifiche al control flow graph eseguite:
-        // header 1 --> exit L2
-        // body 1 --> body 2
-        // body 2 --> latch 1
-        // header 2 --> latch 2
-
+        // dropBack(1) mi toglie il latch dalla lista, back() mi prende il body
         llvm::BasicBlock *lastL1BB = L1->getBlocks().drop_back(1).back();
 
-        // collegamento body loop2 al body loop1
+        // collegamento body loop2 al body loop1 (tolgo sia latch che header)
         lastL1BB->getTerminator()->setSuccessor(0, L2->getBlocks().drop_front(1).drop_back(1).front());
 
-        // collegamento latch loop1 al body loop2
+        // collegamento body loop2 latch loop1
         L2->getBlocks().drop_front(1).drop_back(1).back()->getTerminator()->setSuccessor(0, latch1);
 
         // collegamento header loop2 al latch loop2
@@ -260,7 +283,6 @@ void loopFusion(llvm::Loop *&L1, llvm::Loop *&L2)
     }
     else
     {
-
         // modifiche al control flow graph eseguite:
         // guard1 --> L2 exit
         // latch1 --> L2 exit
