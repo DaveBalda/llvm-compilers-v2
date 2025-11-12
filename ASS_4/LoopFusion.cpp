@@ -72,23 +72,6 @@ void adjLoops(std::set<std::pair<llvm::Loop *, llvm::Loop *>> &adjacentLoops, ll
                  */
                 if (exitBlock && preheader2 && exitBlock == preheader2)
                 {
-                    /*
-                    bool extraInstr = false;
-                    for (auto &I : *exitBlock)
-                    {
-                        if (&I != exitBlock->getTerminator())
-                        {
-                            llvm::outs() << "[Unguarded Loops] Non adiacenti! Istruzione extra → " << I << "\n";
-                            extraInstr = true;
-                            break;
-                        }
-                    }
-                    if (!extraInstr)
-                    {
-                        llvm::outs() << "[Unguarded Loops] Adiacenza trovata!\n";
-                        adjFound = true;
-                        pair(L1, L2, adjacentLoops);
-                    }*/
                     llvm::outs() << "[Unguarded Loops] Adiacenza trovata!\n";
                     adjFound = true;
                     pair(L1, L2, adjacentLoops);
